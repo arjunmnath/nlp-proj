@@ -12,12 +12,12 @@ from sklearn.metrics import classification_report
 LABELS=['Not_offensive','Offensive_Untargetede','Offensive_Targeted_Insult_Individual','Offensive_Targeted_Insult_Group','Offensive_Targeted_Insult_Other']
 
 def instruction_following_dataset(df,size=50):
-    probs=df['Labels'].map(1/df['Labels'].value_counts())
-    sample=df.sample(n=size,weights=probs,random_state=42)
+    probs=df['label'].map(1/df['label'].value_counts())
+    sample=df.sample(n=min(size,len(df)),weights=probs,random_state=42)
     system='''You are an offensive sentence generator. When the user types "Generate" or "generate", return a JSON object with Text and Label. Label must be one of: Not_offensive, not-malayalam, Offensive_Targeted_Insult_Individual, Offensive_Targeted_Insult_Group, Offensive_Targeted_Insult_Others, Offensive_Untargetede.'''
     out=[]
     for _,r in sample.iterrows():
-        out.append({'text':f'<|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\nGenerate<|im_end|>\n<|im_start|>assistant\n{{"Text":"{r["Text"]}","Label":"{r["Labels"]}"}}<|im_end|>'})
+        out.append({'text':f'<|im_start|>system\n{system}<|im_end|>\n<|im_start|>user\nGenerate<|im_end|>\n<|im_start|>assistant\n{{"Text":"{r["text"]}","Label":"{r["label"]}"}}<|im_end|>'})
     return out
 
 def finetune_generator(train_df,cfg,out_dir):
@@ -29,7 +29,7 @@ def finetune_generator(train_df,cfg,out_dir):
     def tok(ex):
         x=tokenizer(ex['text'],max_length=cfg['max_length'],truncation=True,padding='max_length'); x['labels']=x['input_ids'].copy(); return x
     ds=ds.map(tok,batched=True)
-    model=get_peft_model(model,LoraConfig(task_type=TaskType.CAUSAL_LM,r=cfg['lora_r'],lora_alpha=cfg['lora_alpha'],lora_dropout=cfg['lora_dropout'],target_modules=['q_proj','v_proj']))
+    model=get_peft_model(model,LoraConfig(task_type=TaskType.CAUSAL_LM,r=cfg['lora_r'],lora_alpha=cfg['lora_alpha'],lora_dropout=cfg['lora_dropout'],target_modules=['q_proj','v_proj'],inference_mode=False,use_dora=False))
     args=TrainingArguments(output_dir=str(out_dir/'sarvam-ft-offensive'),per_device_train_batch_size=cfg['per_device_train_batch_size'],gradient_accumulation_steps=cfg['gradient_accumulation_steps'],num_train_epochs=cfg['epochs'],learning_rate=cfg['learning_rate'],logging_steps=10,optim='adamw_torch',save_strategy='no',report_to='none',remove_unused_columns=True,gradient_checkpointing=False,fp16=torch.cuda.is_available())
     Trainer(model=model,args=args,train_dataset=ds,data_collator=DataCollatorForSeq2Seq(tokenizer,pad_to_multiple_of=8,return_tensors='pt')).train()
     return model,tokenizer
@@ -57,9 +57,10 @@ class FFClassifier(nn.Module):
     def forward(self,x): return self.network(x)
 
 def classify(train_df,dev_df,synthetic_texts,synthetic_labels,cfg,out_dir):
-    texts=list(train_df.Text)+synthetic_texts; labels=list(train_df.Labels)+synthetic_labels
-    enc=SentenceTransformer(cfg['classifier_encoder']); X=enc.encode(texts,show_progress_bar=True,batch_size=64); Xv=enc.encode(list(dev_df.Text),show_progress_bar=True,batch_size=64)
-    le=LabelEncoder(); y=le.fit_transform(labels); yv=le.transform(dev_df.Labels)
+    texts=list(train_df['text'].map(str))+synthetic_texts
+    labels=list(train_df['label'].map(str))+[str(l) for l in synthetic_labels]
+    enc=SentenceTransformer(cfg['classifier_encoder']); X=enc.encode(texts,show_progress_bar=True,batch_size=64); Xv=enc.encode(list(dev_df['text'].map(str)),show_progress_bar=True,batch_size=64)
+    le=LabelEncoder(); y=le.fit_transform(labels); yv=le.transform(dev_df['label'].map(str))
     tr=DataLoader(TensorDataset(torch.tensor(X,dtype=torch.float32),torch.tensor(y)),batch_size=cfg['classifier_batch_size'],shuffle=True)
     dv=DataLoader(TensorDataset(torch.tensor(Xv,dtype=torch.float32),torch.tensor(yv)),batch_size=cfg['classifier_batch_size'])
     device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'); model=FFClassifier(X.shape[1],len(le.classes_)).to(device); opt=torch.optim.AdamW(model.parameters(),lr=cfg['classifier_lr'],weight_decay=cfg['classifier_weight_decay']); crit=nn.CrossEntropyLoss()

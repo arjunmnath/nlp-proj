@@ -23,10 +23,9 @@ Do **not** change these values if you need to reproduce the notebook results. Th
 The source experiments use:
 
 ```text
-FIRE-2025/Malayalam/mal_full_offensive_train.csv
-FIRE-2025/Malayalam/mal_full_offensive_dev.xlsx   # imbalance notebook
-FIRE-2025/Malayalam/mal_full_offensive_dev.csv    # LLM/combined notebooks
-OLID/olid-training-v1.0.tsv
+data/Malayalam/mal_full_offensive_train.csv
+data/Malayalam/mal_full_offensive_dev.csv    
+data/OLID/olid-training-v1.0.tsv
 ```
 
 Set the paths in `configs/default.py`, or pass them on the command line. The project does not redistribute the datasets.
@@ -82,7 +81,7 @@ malayalam_offensive_project/
 
 ## Approach 1 — imbalance experiments
 
-This is the modular form of the `notebook2a20ed4195.ipynb` experiments. It preserves the original configuration:
+This is the modular form of the `imbalance_experiments.ipynb` experiments. It preserves the original configuration:
 
 - LaBSE: `setu4993/LaBSE`
 - max length: 128
@@ -113,16 +112,14 @@ R5  CB-Focal + sqrt-inverse WeightedRandomSampler
 Run:
 
 ```bash
-PYTHONPATH=src python scripts/run_imbalance.py \
-  --train-path /path/to/mal_full_offensive_train.csv \
-  --dev-path /path/to/mal_full_offensive_dev.xlsx
+PYTHONPATH=src python scripts/run_imbalance.py
 ```
 
 Outputs are written to `outputs/imbalance/`.
 
 ## Approach 2 — LLM-generated minority augmentation
 
-This corresponds to `spell_research.ipynb`.
+This corresponds to `llm_spell_augmentation.ipynb`.
 
 The pipeline is:
 
@@ -147,10 +144,7 @@ Malayalam dev evaluation
 Run:
 
 ```bash
-PYTHONPATH=src python scripts/run_llm_augmentation.py \
-  --train-path /path/to/mal_full_offensive_train.csv \
-  --dev-path /path/to/mal_full_offensive_dev.csv \
-  --num-samples 5
+PYTHONPATH=src python scripts/run_llm_augmentation.py --num-samples 5
 ```
 
 The LoRA parameters remain those in the notebook:
@@ -182,7 +176,7 @@ LaBSE embedding
 
 ## Approach 3 — Malayalam + OLID
 
-This corresponds to `transformer-combined-2.ipynb`.
+This corresponds to `malayalam_olid_combined.ipynb`.
 
 The training dataset is:
 
@@ -208,10 +202,7 @@ The original setup is preserved:
 Run:
 
 ```bash
-PYTHONPATH=src python scripts/run_combined_olid.py \
-  --mal-train /path/to/mal_full_offensive_train.csv \
-  --mal-dev /path/to/mal_full_offensive_dev.csv \
-  --olid-train /path/to/olid-training-v1.0.tsv
+PYTHONPATH=src python scripts/run_combined_olid.py
 ```
 
 ## Reproducing results

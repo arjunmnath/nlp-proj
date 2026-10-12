@@ -1,10 +1,10 @@
 from pathlib import Path
 
 # Paths are intentionally empty: pass dataset paths through the CLI.
-MAL_TRAIN = Path("")
-MAL_DEV_CSV = Path("")
-MAL_DEV_XLSX = Path("")
-OLID_TRAIN = Path("")
+MAL_TRAIN = Path("data/FIRE-2025/Malayalam/mal_full_offensive_train.csv")
+MAL_DEV_XLSX = Path("data/FIRE-2025/Malayalam/mal_full_offensive_dev.xlsx")
+MAL_DEV_CSV = Path("data/FIRE-2025/Malayalam/mal_full_offensive_dev.csv")
+OLID_TRAIN = Path("data/OLID/olid-training-v1.0.tsv")
 
 SEED = 42
 MODEL_PATH = "setu4993/LaBSE"

@@ -6,6 +6,3 @@ outputs/
 *.bin
 *.safetensors
 *.npy
-*.csv
-*.xlsx
-*.tsv
